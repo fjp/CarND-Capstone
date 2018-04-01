@@ -166,7 +166,8 @@ class TLDetector(object):
 
         """
         # Just for testing (use classifier instead)
-        return light.state
+        # rospy.loginfo('[CSChen] get light state = {}'.format(light.state))
+        # return light.state
 
         if(not self.has_image):
             self.prev_light_loc = None

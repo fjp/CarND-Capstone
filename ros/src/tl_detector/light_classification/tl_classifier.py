@@ -3,6 +3,8 @@ from styx_msgs.msg import TrafficLight
 import tensorflow as tf
 import helper
 from os.path import join
+import numpy as np
+import cv2, time
 
 class TLClassifier(object):
     def __init__(self):
@@ -19,6 +21,7 @@ class TLClassifier(object):
         rospy.loginfo('[CSChen] len(global_encoder)={}'.format(len(global_encoder)))
         with tf.variable_scope('decoder'):
             layer_output = helper.layers(l3out, l4out, l7out, self._num_classes)
+        rospy.loginfo("[CSChen] layer_output.shape={}".format(layer_output.shape))
         
         vars_decoder = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='decoder')
         rospy.loginfo('[CSChen] len(vars_decoder)={}'.format(len(vars_decoder)))
@@ -28,6 +31,7 @@ class TLClassifier(object):
 
         logits = tf.reshape(layer_output,(-1,self._num_classes))
         self._out_softmax = tf.nn.softmax(logits) # batch_idx x all_pixel x num_classes
+        rospy.loginfo("[CSChen] self._out_softmax.shape={}".format(self._out_softmax.shape))
 
 
     def get_classification(self, image):
@@ -39,11 +43,37 @@ class TLClassifier(object):
         """
         #TODO implement light color prediction
         # Should get the image data and it's shape first
+        image_h, image_w, c_num = image.shape  # for simulator, 600, 800, 3
+        rospy.loginfo('[CSChen] Before resizing image.shape = {}'.format(image.shape))
+        
+        image = np.concatenate([image, np.zeros(shape=(8,800,3))], axis=0)
 
-        image_h, image_w = 600, 800
+        # image = cv2.resize(image,(412,316))
+        
+        image_h, image_w, c_num = image.shape  # for simulator, 600, 800, 3
+        rospy.loginfo('[CSChen] After resizing image.shape = {}'.format(image.shape))
 
-        out_softmax = sess.run([self._out_softmax],{self._keep_prob: 1.0, self._input_image: [image]})
-        im_softmax = out_softmax[0][:, 1].reshape(image_h, image_w) # image_h, image_w
+        # rospy.loginfo('[CSChen] image.shape={}'.format(image.shape))
+        stime = time.time()
+        out_softmax = self._sess.run(self._out_softmax,{self._keep_prob: 1.0, self._input_image: [image]})
+        etime = time.time()
+        rospy.loginfo('[CSChen] After TensorFlow with {}! out_softmax.shape={}'.format(etime-stime,out_softmax.shape))
+        
+        im_softmax = out_softmax[:, 1].reshape(image_h, image_w) # image_h, image_w
+        ypixels, xpixels = np.nonzero(im_softmax>0.5)
+        rvalues = 0.0
+        gvalues = 0.0
+        for yidx,xidx in zip(ypixels,xpixels):
+            rvalues += image[yidx,xidx,0]
+            gvalues += image[yidx,xidx,1]
+
+        if rvalues>gvalues:
+            rospy.loginfo('[CSChen] RED')
+        else:
+            rospy.loginfo('[CSChen] GREEN')
+        # im_softmax = out_softmax[:, 1].reshape(320, 416) # image_h, image_w
+
         # those points whoes prob>0.5 are our target pixels
+
         # segmentation = (im_softmax > 0.5).reshape(image_shape[0], image_shape[1], 1)
         return TrafficLight.UNKNOWN
