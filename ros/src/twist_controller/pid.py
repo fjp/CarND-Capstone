@@ -62,7 +62,7 @@ class PID(object):
                     if(self.loop_number == 3):
                         self.params[self.index_param] -= 2*self.dp[self.index_param]
                         #rospy.loginfo('loop 5-3')
-			            self.loop_number +=1
+			self.loop_number +=1
                     if (self.loop_number ==2):
                         self.dp[self.index_param] *=0.95
                         self.params[self.index_param] += self.dp[self.index_param]

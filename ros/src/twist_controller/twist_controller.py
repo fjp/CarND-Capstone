@@ -38,13 +38,13 @@ class Controller(object):
         self.throttle_pid = PID(2.0,0.00001,0.1,parameters['accel_limit'],parameters['decel_limit'])
 
 	# Create provided yaw controller object for lateral control
-	    self.min_speed = 0
+	self.min_speed = 0
         self.yaw = YawController(self.main_wheel_base,self.main_steer_ratio, self.min_speed, self.main_lat_accel, self.main_max_steer_angle)
         self.steerLowPass= LowPassFilter(0.007,2.0)
         self.throttle_lp = LowPassFilter(0.5,0.1)
-	    self.Call_number = 0
+	self.Call_number = 0
 
-    def control(self, proposed_linear_vel, proposed_angular_vel, current_linear_vel, sampletime, dbw_enabled, cte):
+    def control(self, proposed_linear_vel, proposed_angular_vel, current_linear_vel, sampletime, dbw_enabled):
         # Return throttle, brake, steer
 
         # Initialize throttle,  brake and steer values
@@ -57,7 +57,7 @@ class Controller(object):
 		self.Call_number += 1
 		return 0.0, 1.0, 0.0
 
-	    throttleError = proposed_linear_vel - current_linear_vel
+	throttleError = proposed_linear_vel - current_linear_vel
         self.throttle_pid.update(throttleError)
         throttle = 0.095*self.throttle_pid.get_val()
         rospy.loginfo('throttle: %s', throttle)
@@ -75,5 +75,5 @@ class Controller(object):
         return throttle, brake, steer
 
     def reset(self):
-	    self.throttle_pid.reset()
+	self.throttle_pid.reset()
         #self.Steer_pid.reset()

@@ -54,8 +54,8 @@ class DBWNode(object):
                                          BrakeCmd, queue_size=1)
         self.dbw_status = False
 	
-        # Create a parameter dictonary
-	    self.parameters = {'vehicle_mass': vehicle_mass,
+	# Create a parameter dictonary
+	self.parameters = {'vehicle_mass': vehicle_mass,
                       'fuel_capacity': fuel_capacity,
                       'brake_deadband': brake_deadband,
                       'decel_limit': decel_limit,
@@ -66,19 +66,17 @@ class DBWNode(object):
                       'max_lat_accel': max_lat_accel,
                       'max_steer_angle': max_steer_angle}
         # Create `Controller` object 
-        # Pass the parameter dictonary to the controller object
-        self.controller = Controller(**self.parameters)
+	# Pass the parameter dictonary to the controller object
+	self.controller = Controller(**self.parameters)
         
-        self.Last_Twist_msg=None
+	self.Last_Twist_msg=None
         self.current_vel = None
-        self.cte = None
         # Subscribe to all the topics you need to
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.set_dbw_status)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.set_twist_msg)
         rospy.Subscriber('/current_velocity',  TwistStamped, self.set_current_vel)
-        rospy.Subscriber('/vehicle/cte_pub', Float64, self.set_Cte)
-        self.prev_steer_value = 0
-        self.previousTime = rospy.get_time()
+	self.prev_steer_value = 0
+	self.previousTime = rospy.get_time()
         self.prev_throttle = 0.0
         self.loop()
 
@@ -89,19 +87,16 @@ class DBWNode(object):
             # You should only publish the control commands if dbw is enabled
             currentTime = rospy.get_time()
             sampleTime = currentTime - self.previousTime
-            if(self.Last_Twist_msg != None and self.current_vel != None and self.dbw_status and self.cte != None):
+            if(self.Last_Twist_msg != None and self.current_vel != None and self.dbw_status):
                 throttle, brake, steer = self.controller.control(self.Last_Twist_msg.twist.linear.x,
                                                                     self.Last_Twist_msg.twist.angular.z,
                                                                     self.current_vel.twist.linear.x,
-                                                                    sampleTime, self.dbw_status, self.cte)
+                                                                    sampleTime, self.dbw_status)
 
 	    	self.publish(throttle, brake, steer)
             else:
 		self.controller.reset()
 	    rate.sleep()
-
-    def set_Cte(self,msg):
-        self.cte = msg.data
 
     def set_dbw_status(self, msg):
         self.dbw_status = msg.data
