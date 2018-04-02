@@ -81,9 +81,9 @@ class TLClassifier(object):
         rospy.loginfo('[CSChen] traffic_pixels.shape={}'.format(traffic_pixels.shape))
         hsv = cv2.cvtColor(traffic_pixels,cv2.COLOR_RGB2HSV)
         h, s, v = hsv[0,:,0], hsv[0,:,1], hsv[0,:,2]
-        redh = sum([x for x in h if (x<25)])
-        yellowh = sum([x for x in h if (25<x<45)])
-        greenh = sum([x for x in h if (45<x<65)])
+        redh = len([x for x in h if (x<25)])
+        yellowh = len([x for x in h if (25<x<45)])
+        greenh = len([x for x in h if (45<x<65)])
         light_hlist = [redh, yellowh, greenh]
         rospy.loginfo('[CSChen] light_hlist={}'.format(light_hlist))
 
