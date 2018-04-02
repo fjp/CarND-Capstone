@@ -13,6 +13,7 @@ class TLClassifier(object):
         vgg_path = join(model_dir,'vgg')
         tl_path = join(model_dir,'tl_model/semantic_model_epoch_10')
         self._num_classes = 2
+        self._min_num_traffic_pixel_ratio = 0.005
         
         # vgg_path = './vgg'
         self._sess = tf.Session()
@@ -50,8 +51,15 @@ class TLClassifier(object):
 
         # image = cv2.resize(image,(412,316))
         
-        image_h, image_w, c_num = image.shape  # for simulator, 600, 800, 3
+        image_h, image_w, c_num = image.shape  # for simulator, 608, 800, 3
         rospy.loginfo('[CSChen] After resizing image.shape = {}'.format(image.shape))
+
+        # [Debug]
+        # traffic_pixels = [image[100,100,:], image[150,150,:]]
+        # traffic_pixels = np.array([traffic_pixels], dtype=np.uint8)
+        # rospy.loginfo('[CSChen] traffic_pixels.shape={}; traffic_pixels={}'.format(traffic_pixels.shape, traffic_pixels))
+        # hsv = cv2.cvtColor(traffic_pixels,cv2.COLOR_RGB2HSV)
+        # rospy.loginfo('[CSChen] hsv={}'.format(hsv))
 
         # rospy.loginfo('[CSChen] image.shape={}'.format(image.shape))
         stime = time.time()
@@ -61,19 +69,29 @@ class TLClassifier(object):
         
         im_softmax = out_softmax[:, 1].reshape(image_h, image_w) # image_h, image_w
         ypixels, xpixels = np.nonzero(im_softmax>0.5)
-        rvalues = 0.0
-        gvalues = 0.0
+
+        traffic_pixels = []
         for yidx,xidx in zip(ypixels,xpixels):
-            rvalues += image[yidx,xidx,0]
-            gvalues += image[yidx,xidx,1]
+            traffic_pixels.append(image[yidx,xidx,:])
+        min_num_traffic_pixel = image_h*image_w*self._min_num_traffic_pixel_ratio
+        if (len(traffic_pixels)<min_num_traffic_pixel):
+            rospy.loginfo('[CSChen] UNKNOWN (no traffic light detected)')
+            return TrafficLight.UNKNOWN
+        traffic_pixels = np.array([traffic_pixels], dtype=np.uint8)
+        rospy.loginfo('[CSChen] traffic_pixels.shape={}'.format(traffic_pixels.shape))
+        hsv = cv2.cvtColor(traffic_pixels,cv2.COLOR_RGB2HSV)
+        h, s, v = hsv[0,:,0], hsv[0,:,1], hsv[0,:,2]
+        redh = sum([x for x in h if (x<25)])
+        yellowh = sum([x for x in h if (25<x<45)])
+        greenh = sum([x for x in h if (45<x<65)])
+        light_hlist = [redh, yellowh, greenh]
+        rospy.loginfo('[CSChen] light_hlist={}'.format(light_hlist))
 
-        if rvalues>gvalues:
+        if np.argmax(light_hlist)==0:
             rospy.loginfo('[CSChen] RED')
-        else:
-            rospy.loginfo('[CSChen] GREEN')
-        # im_softmax = out_softmax[:, 1].reshape(320, 416) # image_h, image_w
-
-        # those points whoes prob>0.5 are our target pixels
-
-        # segmentation = (im_softmax > 0.5).reshape(image_shape[0], image_shape[1], 1)
-        return TrafficLight.UNKNOWN
+            return TrafficLight.RED
+        if np.argmax(light_hlist)==1:
+            rospy.loginfo('[CSChen] YELLOW')
+            return TrafficLight.YELLOW
+        rospy.loginfo('[CSChen] GREEN')
+        return TrafficLight.GREEN
