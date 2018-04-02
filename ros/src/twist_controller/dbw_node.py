@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
 import math
@@ -43,7 +43,7 @@ class DBWNode(object):
         wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
         wheel_base = rospy.get_param('~wheel_base', 2.8498)
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
-        max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
+        max_lat_accel = rospy.get_param('~max_lat_accel', 2.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
@@ -54,8 +54,8 @@ class DBWNode(object):
                                          BrakeCmd, queue_size=1)
         self.dbw_status = False
 	
-	# Create a parameter dictonary
-	parameters = {'vehicle_mass': vehicle_mass,
+        # Create a parameter dictonary
+	    self.parameters = {'vehicle_mass': vehicle_mass,
                       'fuel_capacity': fuel_capacity,
                       'brake_deadband': brake_deadband,
                       'decel_limit': decel_limit,
@@ -66,19 +66,20 @@ class DBWNode(object):
                       'max_lat_accel': max_lat_accel,
                       'max_steer_angle': max_steer_angle}
         # Create `Controller` object 
-	# Pass the parameter dictonary to the controller object
-	self.controller = Controller(**parameters)
-        # self.controller = Controller(vehicle_mass, fuel_capacity, brake_deadband, decel_limit, accel_limit, wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle)
+        # Pass the parameter dictonary to the controller object
+        self.controller = Controller(**self.parameters)
         
-	self.Last_Twist_msg=None
+        self.Last_Twist_msg=None
         self.current_vel = None
+        self.cte = None
         # Subscribe to all the topics you need to
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.set_dbw_status)
         rospy.Subscriber('/twist_cmd', TwistStamped, self.set_twist_msg)
         rospy.Subscriber('/current_velocity',  TwistStamped, self.set_current_vel)
-        
-	self.prev_steer_value = 0
-	self.previousTime = rospy.get_time()
+        rospy.Subscriber('/vehicle/cte_pub', Float64, self.set_Cte)
+        self.prev_steer_value = 0
+        self.previousTime = rospy.get_time()
+        self.prev_throttle = 0.0
         self.loop()
 
     def loop(self):
@@ -88,22 +89,21 @@ class DBWNode(object):
             # You should only publish the control commands if dbw is enabled
             currentTime = rospy.get_time()
             sampleTime = currentTime - self.previousTime
-            if(self.Last_Twist_msg != None and self.current_vel != None):
+            if(self.Last_Twist_msg != None and self.current_vel != None and self.dbw_status and self.cte != None):
                 throttle, brake, steer = self.controller.control(self.Last_Twist_msg.twist.linear.x,
                                                                     self.Last_Twist_msg.twist.angular.z,
                                                                     self.current_vel.twist.linear.x,
-                                                                    sampleTime)
+                                                                    sampleTime, self.dbw_status, self.cte)
 
-            
-            #rospy.loginfo('SteerValue after Control - %s' ,steer)
-	    if self.dbw_status:
 	    	self.publish(throttle, brake, steer)
             else:
 		self.controller.reset()
 	    rate.sleep()
 
+    def set_Cte(self,msg):
+        self.cte = msg.data
+
     def set_dbw_status(self, msg):
-        
         self.dbw_status = msg.data
 
     def set_twist_msg(self, msg):
@@ -113,24 +113,22 @@ class DBWNode(object):
         self.current_vel = msg
 
     def publish(self, throttle, brake, steer):
-     if throttle!=0:
         tcmd = ThrottleCmd()
         tcmd.enable = True
         tcmd.pedal_cmd_type = ThrottleCmd.CMD_PERCENT
         tcmd.pedal_cmd = throttle
         self.throttle_pub.publish(tcmd)
 
-     else:
         bcmd = BrakeCmd()
         bcmd.enable = True
         bcmd.pedal_cmd_type = BrakeCmd.CMD_TORQUE
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
 
-     scmd = SteeringCmd()
-     scmd.enable = True
-     scmd.steering_wheel_angle_cmd = steer
-     self.steer_pub.publish(scmd)
+        scmd = SteeringCmd()
+        scmd.enable = True
+        scmd.steering_wheel_angle_cmd = steer
+        self.steer_pub.publish(scmd)
 
 if __name__ == '__main__':
     DBWNode()
