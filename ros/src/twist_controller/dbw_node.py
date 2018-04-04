@@ -72,9 +72,10 @@ class DBWNode(object):
 	self.Last_Twist_msg=None
         self.current_vel = None
         # Subscribe to all the topics you need to
-        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.set_dbw_status)
-        rospy.Subscriber('/twist_cmd', TwistStamped, self.set_twist_msg)
-        rospy.Subscriber('/current_velocity',  TwistStamped, self.set_current_vel)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.set_dbw_status, queue_size=1)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.set_twist_msg, queue_size=1)
+        rospy.Subscriber('/current_velocity',  TwistStamped, self.set_current_vel, queue_size=1)
+
 	self.prev_steer_value = 0
 	self.previousTime = rospy.get_time()
         self.prev_throttle = 0.0

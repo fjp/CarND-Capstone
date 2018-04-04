@@ -108,10 +108,9 @@ class WaypointUpdater(object):
 	
         if self.stopline_wp_idx == -1 or (self.stopline_wp_idx >= farthest_idx):
             # set the velocity for lookahead waypoints
-            for i in range(len(finalWaypoints) - 1):
-                # convert 10 miles per hour to meters per sec
-                self.set_waypoint_velocity(finalWaypoints, i, TARGET_SPEED_MPS)
-		
+            #for i in range(len(finalWaypoints) - 1):
+            #    # convert 10 miles per hour to meters per sec
+            #    self.set_waypoint_velocity(finalWaypoints, i, TARGET_SPEED_MPS)
 
             lane.waypoints = finalWaypoints
             if (LOGGING): rospy.loginfo('[waypoint updater] No red light, set velocity to %s m/s (%s miles/h)', TARGET_SPEED_MPS, TARGET_SPEED_MPH)
