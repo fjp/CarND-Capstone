@@ -1,34 +1,12 @@
-import rospy
 from styx_msgs.msg import TrafficLight
-import tensorflow as tf
-import helper
-from os.path import join
+import cv2
+import numpy as np
 
 class TLClassifier(object):
     def __init__(self):
         #TODO load classifier
-        model_dir = '/home/student/finalProject/Udacity-term3-final'
-        vgg_path = join(model_dir,'vgg')
-        tl_path = join(model_dir,'tl_model/semantic_model_epoch_10')
-        self._num_classes = 2
-        
-        # vgg_path = './vgg'
-        self._sess = tf.Session()
-        self._input_image, self._keep_prob, l3out, l4out, l7out = helper.load_vgg(self._sess,vgg_path)
-        global_encoder = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-        rospy.loginfo('[CSChen] len(global_encoder)={}'.format(len(global_encoder)))
-        with tf.variable_scope('decoder'):
-            layer_output = helper.layers(l3out, l4out, l7out, self._num_classes)
-        
-        vars_decoder = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,scope='decoder')
-        rospy.loginfo('[CSChen] len(vars_decoder)={}'.format(len(vars_decoder)))
-        saver = tf.train.Saver(var_list = vars_decoder)
-        saver.restore(self._sess, tl_path)
-        rospy.loginfo("[CSChen] Model loaded")
-
-        logits = tf.reshape(layer_output,(-1,self._num_classes))
-        self._out_softmax = tf.nn.softmax(logits) # batch_idx x all_pixel x num_classes
-
+        #self.model = load_model('light_classifier_model.h5')
+        pass
 
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
@@ -37,13 +15,33 @@ class TLClassifier(object):
         Returns:
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
         """
-        #TODO implement light color prediction
-        # Should get the image data and it's shape first
+        #TODO Implement classification of green and yellow traffic lights
+        # Assume unknown traffic light state because the vehicle will stop if this state occures
+        state = TrafficLight.UNKNOWN
+        output = image.copy()
+        redImage = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-        image_h, image_w = 600, 800
+        # Perform thresholding
+        # Filter red color for simulator
+        lowerRed = np.array([0,50,50])
+        upperRed = np.array([10,255,255])
+        redSim = cv2.inRange(redImage, lowerRed , upperRed)
 
-        out_softmax = sess.run([self._out_softmax],{self._keep_prob: 1.0, self._input_image: [image]})
-        im_softmax = out_softmax[0][:, 1].reshape(image_h, image_w) # image_h, image_w
-        # those points whoes prob>0.5 are our target pixels
-        # segmentation = (im_softmax > 0.5).reshape(image_shape[0], image_shape[1], 1)
-        return TrafficLight.UNKNOWN
+        # Filter red color for real test site
+        lowerRed = np.array([170,50,50])
+        upperRed = np.array([180,255,255])
+        redReal = cv2.inRange(redImage, lowerRed , upperRed)
+        
+        # Combine filtered images using full weights of 1.0 and no offset (gamma = 0)
+        combinedRedImage = cv2.addWeighted(redSim, 1.0, redReal, 1.0, 0.0)
+
+        blurredRedImage = cv2.GaussianBlur(combinedRedImage, (15,15), 0)
+
+        # Find circles in the image that contains only red circles
+        redCircles = cv2.HoughCircles(blurredRedImage, cv2.HOUGH_GRADIENT, 0.5, 41, param1=70, param2=30, minRadius=5, maxRadius=150)
+
+        if redCircles is not None:
+            state = TrafficLight.RED
+
+
+        return state
