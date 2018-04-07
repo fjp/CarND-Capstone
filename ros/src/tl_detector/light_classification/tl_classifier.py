@@ -79,7 +79,7 @@ class TLClassifier(object):
             return TrafficLight.UNKNOWN
         traffic_pixels = np.array([traffic_pixels], dtype=np.uint8)
         rospy.loginfo('[CSChen] traffic_pixels.shape={}'.format(traffic_pixels.shape))
-        hsv = cv2.cvtColor(traffic_pixels,cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(traffic_pixels,cv2.COLOR_BGR2HSV)
         h, s, v = hsv[0,:,0], hsv[0,:,1], hsv[0,:,2]
         redh = len([x for x in h if (x<25)])
         yellowh = len([x for x in h if (25<x<45)])
