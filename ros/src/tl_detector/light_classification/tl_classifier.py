@@ -44,15 +44,15 @@ class TLClassifier(object):
         """
         #TODO implement light color prediction
         # Should get the image data and it's shape first
-        image_h, image_w, c_num = image.shape  # for simulator, 600, 800, 3
+        image_h_original, image_w_original, c_num = image.shape  # for simulator, 600, 800, 3
         rospy.loginfo('[CSChen] Before resizing image.shape = {}'.format(image.shape))
         
-        image = np.concatenate([image, np.zeros(shape=(8,800,3))], axis=0)
+        # image = np.concatenate([image, np.zeros(shape=(8,800,3))], axis=0)
 
-        # image = cv2.resize(image,(412,316))
+        image_resize = cv2.resize(image,(412,316))
         
-        image_h, image_w, c_num = image.shape  # for simulator, 608, 800, 3
-        rospy.loginfo('[CSChen] After resizing image.shape = {}'.format(image.shape))
+        image_h, image_w, c_num = image_resize.shape  # for simulator, 608, 800, 3
+        rospy.loginfo('[CSChen] After resizing image.shape = {}'.format(image_resize.shape))
 
         # [Debug]
         # traffic_pixels = [image[100,100,:], image[150,150,:]]
@@ -63,16 +63,22 @@ class TLClassifier(object):
 
         # rospy.loginfo('[CSChen] image.shape={}'.format(image.shape))
         stime = time.time()
-        out_softmax = self._sess.run(self._out_softmax,{self._keep_prob: 1.0, self._input_image: [image]})
+        out_softmax = self._sess.run(self._out_softmax,{self._keep_prob: 1.0, self._input_image: [image_resize]})
         etime = time.time()
         rospy.loginfo('[CSChen] After TensorFlow with {}! out_softmax.shape={}'.format(etime-stime,out_softmax.shape))
         
-        im_softmax = out_softmax[:, 1].reshape(image_h, image_w) # image_h, image_w
+        im_softmax = out_softmax[:, 1].reshape(320, 416) # image_h, image_w
+        hratio = float(image_h_original)/320.0
+        wratio = float(image_w_original)/416.0
+        # im_softmax = out_softmax[:, 1].reshape(image_h, image_w) # image_h, image_w
         ypixels, xpixels = np.nonzero(im_softmax>0.5)
 
         traffic_pixels = []
         for yidx,xidx in zip(ypixels,xpixels):
-            traffic_pixels.append(image[yidx,xidx,:])
+            yidx_original = int(yidx*hratio)
+            xidx_original = int(xidx*wratio)
+            traffic_pixels.append(image[yidx_original,xidx_original,:])
+            # traffic_pixels.append(image[yidx,xidx,:])
         min_num_traffic_pixel = image_h*image_w*self._min_num_traffic_pixel_ratio
         if (len(traffic_pixels)<min_num_traffic_pixel):
             rospy.loginfo('[CSChen] UNKNOWN (no traffic light detected)')
