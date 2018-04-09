@@ -34,6 +34,9 @@ class TLClassifier(object):
         self._out_softmax = tf.nn.softmax(logits) # batch_idx x all_pixel x num_classes
         rospy.loginfo("[CSChen] self._out_softmax.shape={}".format(self._out_softmax.shape))
 
+        # [Debug]:
+        self._debug_counter = 0
+
 
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
@@ -43,6 +46,7 @@ class TLClassifier(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
         """
         #TODO implement light color prediction
+        self._debug_counter += 1
         # Should get the image data and it's shape first
         image_h_original, image_w_original, c_num = image.shape  # for simulator, 600, 800, 3
         rospy.loginfo('[CSChen] Before resizing image.shape = {}'.format(image.shape))
@@ -73,12 +77,20 @@ class TLClassifier(object):
         # im_softmax = out_softmax[:, 1].reshape(image_h, image_w) # image_h, image_w
         ypixels, xpixels = np.nonzero(im_softmax>0.5)
 
+        debug_image = np.copy(image)
+
         traffic_pixels = []
         for yidx,xidx in zip(ypixels,xpixels):
             yidx_original = int(yidx*hratio)
             xidx_original = int(xidx*wratio)
             traffic_pixels.append(image[yidx_original,xidx_original,:])
+            debug_image[yidx_original,xidx_original,:] = [0,0,255]
             # traffic_pixels.append(image[yidx,xidx,:])
+
+        # [Debug]: save debug image
+        cv2.imwrite("/home/student/finalProject/pics_vgg/camera_img_"+str(self._debug_counter)+".jpg",debug_image)
+        rospy.loginfo("[CSChen] dumped image camera_img_"+str(self._debug_counter)+".jpg")
+
         min_num_traffic_pixel = image_h*image_w*self._min_num_traffic_pixel_ratio
         if (len(traffic_pixels)<min_num_traffic_pixel):
             rospy.loginfo('[CSChen] UNKNOWN (no traffic light detected)')
